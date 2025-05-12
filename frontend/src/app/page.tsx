@@ -82,33 +82,31 @@ export default function Home() {
       <Hero onExploreClick={() => document.getElementById('nasa-images')?.scrollIntoView({ behavior: 'smooth' })} />
       
       <div id="nasa-images" className="container mx-auto px-4 py-16">
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <h2 className="text-3xl font-bold text-foreground">
-              Imagens do Dia da NASA
-            </h2>
-            {status === 'authenticated' && (
-              <div className="flex items-center gap-4">
-                <span className="text-muted-foreground">
-                  Bem-vindo, {session.user.name || session.user.email}
-                </span>
-                <button
-                  onClick={handleToggleFavoritesFilter}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors duration-300 ${
-                    showOnlyFavorites 
-                      ? 'bg-[#c75c5c] text-white hover:bg-[#b54b4b]' 
-                      : 'bg-card border border-border hover:bg-accent'
-                  }`}
-                >
-                  <Star className={`w-4 h-4 ${showOnlyFavorites ? 'fill-white' : ''}`} />
-                  {showOnlyFavorites ? 'Mostrar todas' : 'Apenas favoritos'}
-                </button>
-              </div>
-            )}
-          </div>
-          <p className="text-muted-foreground mt-4">
+        <div className="mb-8 flex flex-col items-center">
+          <h2 className="text-3xl font-bold text-foreground text-center">
+            Imagens do Dia da NASA
+          </h2>
+          <p className="text-muted-foreground mt-2 text-center">
             Explore as incríveis imagens do espaço capturadas pela NASA.
           </p>
+          {status === 'authenticated' && (
+            <div className="flex flex-col md:flex-row items-center gap-4 mt-4">
+              <span className="text-muted-foreground text-center md:text-left">
+                Bem-vindo, {session.user.name || session.user.email}
+              </span>
+              <button
+                onClick={handleToggleFavoritesFilter}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors duration-300 ${
+                  showOnlyFavorites 
+                    ? 'bg-[#c75c5c] text-white hover:bg-[#b54b4b]' 
+                    : 'bg-card border border-border hover:bg-accent'
+                }`}
+              >
+                <Star className={`w-4 h-4 ${showOnlyFavorites ? 'fill-white' : ''}`} />
+                {showOnlyFavorites ? 'Mostrar todas' : 'Apenas favoritos'}
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 mb-8">

@@ -27,7 +27,7 @@ export default function Hero({ onExploreClick }: HeroProps) {
           Descubra as mais impressionantes imagens capturadas pela NASA. Uma jornada pelo cosmos através dos olhos da ciência.
         </p>
         
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto justify-center items-center">
           <Button
             onClick={onExploreClick}
             className="text-primary-foreground px-6 py-3 rounded-lg text-md font-medium transition-colors duration-200 flex items-center gap-2"
@@ -38,7 +38,7 @@ export default function Hero({ onExploreClick }: HeroProps) {
           </Button>
           <Button 
             href="/register"
-            className="bg-transparent hover:bg-primary text-foreground border border-border px-6 py-3 rounded-lg text-md font-medium transition-colors duration-200"
+            className="bg-transparent hover:bg-primary text-foreground border border-border px-6 py-3 rounded-lg text-md font-medium transition-colors duration-200 text-center"
           >
             Criar Conta
           </Button>
