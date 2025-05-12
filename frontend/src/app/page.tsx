@@ -1,12 +1,14 @@
 'use client';
 
 import Hero from "@/components/Hero";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ImageCard } from '@/components/nasa/ImageCard';
-import { Calendar, Search, Loader2, Rocket, Star } from 'lucide-react';
+import { Search, Loader2, Rocket, Star, Calendar } from 'lucide-react';
 import { useNasaQueries } from '@/hooks/useNasaQueries';
 import { useSession } from 'next-auth/react';
 import Image from "next/image";
+import ReactDatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 interface NasaImage {
   id: string;
@@ -24,7 +26,8 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const { useImages, useFavorites } = useNasaQueries();
-
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const datepickerRef = useRef<ReactDatePicker | null>(null);
 
   useEffect(() => {
     const savedPage = localStorage.getItem('nasaCurrentPage');
@@ -121,12 +124,21 @@ export default function Home() {
             />
           </div>
           <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c75c5c]"
+            <Calendar 
+              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#c75c5c] cursor-pointer z-10" 
+              onClick={() => datepickerRef.current?.setOpen(true)} 
+            />
+            <ReactDatePicker
+              ref={datepickerRef}
+              selected={selectedDate}
+              onChange={(date) => {
+                setSelectedDate(date);
+                setDate(date ? date.toISOString().slice(0, 10) : '');
+              }}
+              className="pl-10 pr-10 py-2 bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c75c5c] w-full"
+              placeholderText="Selecione uma data"
+              dateFormat="yyyy-MM-dd"
+              isClearable
             />
           </div>
         </div>
