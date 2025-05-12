@@ -7,8 +7,7 @@ export class ApodController {
 
   @Get("sync")
   async fetchAndStore() {
-    const today = new Date().toISOString().split('T')[0];
-    return this.apodService.findByDate(today);
+    return this.apodService.fetchAndSaveApod();
   }
 
   @Get()
@@ -22,7 +21,7 @@ export class ApodController {
       date,
       search,
       page ? parseInt(page) : 1,
-      limit ? parseInt(limit) : 12
+      limit ? parseInt(limit) : 30
     );
   }
 
@@ -32,7 +31,22 @@ export class ApodController {
   }
 
   @Get('sync-range')
-  syncRange(@Query('start') start: string, @Query('end') end: string) {
+  syncRange(
+    @Query('start') start: string,
+    @Query('end') end: string
+  ) {
     return this.apodService.syncRange(start, end);
+  }
+
+  @Get('sync-all')
+  async syncAll() {
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - 90); // Sincroniza últimos 90 dias
+    
+    return this.apodService.syncRange(
+      startDate.toISOString().split('T')[0],
+      today.toISOString().split('T')[0]
+    );
   }
 }

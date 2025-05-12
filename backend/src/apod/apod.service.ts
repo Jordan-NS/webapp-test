@@ -24,9 +24,28 @@ export class ApodService {
   }
 
   async fetchAndSaveApod(): Promise<any> {
-    const data = await this.fetchFromNasa();
-    if (!data) return null;
-    return this.saveApod(data);
+    const today = new Date();
+    const ninetyDaysAgo = new Date(today);
+    ninetyDaysAgo.setDate(today.getDate() - 90); // Aumentando para 90 dias
+
+    const results = [];
+    const errors = [];
+
+    for (let d = new Date(today); d >= ninetyDaysAgo; d.setDate(d.getDate() - 1)) {
+      const dateStr = d.toISOString().split('T')[0];
+      try {
+        const data = await this.fetchFromNasa(dateStr);
+        if (data) {
+          const saved = await this.saveApod(data);
+          results.push(saved);
+        }
+      } catch (error) {
+        console.error(`Erro ao buscar imagem de ${dateStr}:`, error);
+        errors.push({ date: dateStr, error: error.message });
+      }
+    }
+
+    return { saved: results, errors };
   }
 
   private async saveApod(data: any) {
@@ -43,7 +62,7 @@ export class ApodService {
     });
   }
 
-  async findAll(date?: string, search?: string, page: number = 1, limit: number = 12) {
+  async findAll(date?: string, search?: string, page: number = 1, limit: number = 30) {
     if (date) {
       try {
         const nasaData = await this.fetchFromNasa(date);
@@ -69,7 +88,11 @@ export class ApodService {
       ];
     }
 
-    return this.prisma.apod.findMany({
+    // Primeiro, conta o total de imagens
+    const total = await this.prisma.apod.count({ where });
+
+    // Depois, busca as imagens com paginação
+    const images = await this.prisma.apod.findMany({
       where,
       orderBy: {
         date: "desc",
@@ -77,6 +100,14 @@ export class ApodService {
       skip: (page - 1) * limit,
       take: limit,
     });
+
+    return {
+      images,
+      total,
+      hasMore: total > page * limit,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit)
+    };
   }
 
   async findByDate(date: string) {

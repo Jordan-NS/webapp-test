@@ -36,11 +36,30 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [date, setDate] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [totalImages, setTotalImages] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const api = useApi();
   const { status } = useSession();
+
+  // Carregar estado inicial do localStorage
+  useEffect(() => {
+    const savedPage = localStorage.getItem('nasaCurrentPage');
+    const savedSearch = localStorage.getItem('nasaSearchTerm');
+    const savedDate = localStorage.getItem('nasaDate');
+
+    if (savedPage) setCurrentPage(Number(savedPage));
+    if (savedSearch) setSearchTerm(savedSearch);
+    if (savedDate) setDate(savedDate);
+  }, []);
+
+  // Salvar estado no localStorage quando mudar
+  useEffect(() => {
+    localStorage.setItem('nasaCurrentPage', currentPage.toString());
+    localStorage.setItem('nasaSearchTerm', searchTerm);
+    localStorage.setItem('nasaDate', date);
+  }, [currentPage, searchTerm, date]);
 
   const fetchImages = useCallback(async (pageNum: number = 1, append: boolean = false) => {
     try {
@@ -56,13 +75,17 @@ export default function Home() {
           date: date || undefined,
           search: searchTerm || undefined,
           page: pageNum,
-          limit: 12
+          limit: 30
         }
       });
       
-      const newImages = response.data;
-      setHasMore(newImages.length === 12);
-      setTotalImages(prev => append ? prev + newImages.length : newImages.length);
+      const { images: newImages, total, hasMore, currentPage, totalPages } = response.data;
+      console.log('Resposta da API:', { newImages, total, hasMore, currentPage, totalPages });
+      
+      setHasMore(hasMore);
+      setTotalImages(total);
+      setCurrentPage(currentPage);
+      setTotalPages(totalPages);
       
       if (append) {
         setImages(prev => [...prev, ...newImages]);
@@ -111,9 +134,18 @@ export default function Home() {
   }, [api]);
 
   useEffect(() => {
-    setPage(1);
-    fetchImages(1, false);
-  }, [fetchImages]);
+    const syncAllImages = async () => {
+      try {
+        await api.get('/apod/sync-all');
+        // Recarregar as imagens após a sincronização
+        fetchImages(1, false);
+      } catch (error) {
+        console.error('Erro ao sincronizar imagens:', error);
+      }
+    };
+
+    syncAllImages();
+  }, [api, fetchImages]);
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -122,15 +154,16 @@ export default function Home() {
   }, [status, fetchFavorites]);
 
   const handleLoadMore = () => {
-    const nextPage = page + 1;
-    setPage(nextPage);
+    const nextPage = currentPage + 1;
+    setCurrentPage(nextPage);
     fetchImages(nextPage, true);
   };
 
   const handleFavoriteToggle = useCallback(() => {
     fetchFavorites();
   }, [fetchFavorites]);
-
+  
+  
   return (
     <div className="flex flex-col items-center">
       <Hero onExploreClick={() => document.getElementById('nasa-images')?.scrollIntoView({ behavior: 'smooth' })} />
@@ -189,7 +222,7 @@ export default function Home() {
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="animate-pulse">
+              <div key={`skeleton-${i}`} className="animate-pulse">
                 <div className="bg-card rounded-lg overflow-hidden">
                   <div className="aspect-video bg-muted" />
                   <div className="p-4 space-y-3">
@@ -204,16 +237,17 @@ export default function Home() {
         ) : (
           <>
             <div className="mb-4 text-sm text-muted-foreground">
-              Mostrando {totalImages} {totalImages === 1 ? 'imagem' : 'imagens'}
+              Mostrando {images.length} de {totalImages} {totalImages === 1 ? 'imagem' : 'imagens'} (Página {currentPage} de {totalPages})
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {images.map((image) => (
+              {images.map((image, index) => (
                 <ImageCard
-                  key={image.id}
+                  key={`nasa-image-${image.id}`}
                   {...image}
                   isFavorite={favorites.some(fav => fav.apodId === image.id)}
                   onFavoriteToggle={handleFavoriteToggle}
+                  isFirstImage={index < 3}
                 />
               ))}
             </div>
@@ -222,17 +256,33 @@ export default function Home() {
               <div className="mt-8 text-center">
                 <button
                   onClick={handleLoadMore}
-                  className="px-6 py-3 bg-[#c75c5c] text-white rounded-lg hover:bg-[#b54b4b] transition-colors duration-300 flex items-center justify-center gap-2 mx-auto"
+                  className="px-6 py-3 bg-[#c75c5c] text-white rounded-lg hover:bg-[#b54b4b] transition-colors duration-300 flex items-center justify-center gap-2 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isLoadingMore}
                 >
-                  <Rocket className="w-5 h-5" />
-                  Carregar mais imagens
+                  {isLoadingMore ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Rocket className="w-5 h-5" />
+                  )}
+                  Carregar mais imagens ({totalImages - images.length} restantes)
                 </button>
               </div>
             )}
 
             {isLoadingMore && (
               <div className="mt-8 text-center">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto text-[#c75c5c]" />
+                <div className="flex flex-col items-center gap-2">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#c75c5c]" />
+                  <p className="text-sm text-muted-foreground">Carregando mais imagens...</p>
+                </div>
+              </div>
+            )}
+
+            {!isLoading && !isLoadingMore && images.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">
+                  Nenhuma imagem encontrada. Tente ajustar os filtros ou buscar a imagem do dia.
+                </p>
               </div>
             )}
           </>
