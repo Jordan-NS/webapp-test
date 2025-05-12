@@ -42,7 +42,7 @@ export class ApodController {
   async syncAll() {
     const today = new Date();
     const startDate = new Date(today);
-    startDate.setDate(today.getDate() - 90); // Sincroniza últimos 90 dias
+    startDate.setDate(today.getDate() - 90);
     
     return this.apodService.syncRange(
       startDate.toISOString().split('T')[0],

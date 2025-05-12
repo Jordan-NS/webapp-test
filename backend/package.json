@@ -5,7 +5,8 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main"
+    "start:prod": "node dist/main",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.0",
@@ -29,5 +30,8 @@
     "@types/bcrypt": "^5.0.2",
     "@types/passport-jwt": "^4.0.1",
     "ts-node": "^10.9.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

@@ -21,7 +21,11 @@ export class AuthService {
         name: data.name,
       },
     });
-    const access_token = this.jwtService.sign({ sub: user.id, email: user.email });
+    const access_token = this.jwtService.sign({ 
+      sub: user.id, 
+      email: user.email,
+      name: user.name 
+    });
     return { 
       access_token,
       user: {
@@ -40,7 +44,11 @@ export class AuthService {
       throw new UnauthorizedException("Credenciais inválidas");
     }
 
-    const access_token = this.jwtService.sign({ sub: user.id, email: user.email });
+    const access_token = this.jwtService.sign({ 
+      sub: user.id, 
+      email: user.email,
+      name: user.name 
+    });
     return { 
       access_token,
       user: {

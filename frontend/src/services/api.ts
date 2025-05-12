@@ -10,50 +10,20 @@ const api = axios.create({
   withCredentials: true
 });
 
-// Log de requisições
 api.interceptors.request.use(
   (config) => {
-    console.log('Requisição sendo enviada:', {
-      url: `${config.baseURL}${config.url}`,
-      method: config.method,
-      params: config.params,
-      data: config.data,
-      headers: config.headers
-    });
     return config;
   },
   (error) => {
-    console.error('Erro na requisição:', error);
     return Promise.reject(error);
   }
 );
 
-// Log de respostas
 api.interceptors.response.use(
   (response) => {
-    console.log('Resposta recebida:', {
-      status: response.status,
-      data: response.data,
-      headers: response.headers
-    });
     return response;
   },
   (error) => {
-    if (error.response) {
-      console.error('Erro na resposta:', {
-        status: error.response.status,
-        data: error.response.data,
-        headers: error.response.headers,
-        url: error.config?.url,
-        method: error.config?.method,
-        params: error.config?.params,
-        requestData: error.config?.data
-      });
-    } else if (error.request) {
-      console.error('Erro na requisição:', error.request);
-    } else {
-      console.error('Erro:', error.message);
-    }
     return Promise.reject(error);
   }
 );
@@ -61,7 +31,6 @@ api.interceptors.response.use(
 export function useApi() {
   const { data: session } = useSession();
 
-  // Configurar o token no interceptor
   api.interceptors.request.use(
     (config) => {
       if (session?.accessToken) {
@@ -70,7 +39,6 @@ export function useApi() {
       return config;
     },
     (error) => {
-      console.error('Erro na requisição:', error);
       return Promise.reject(error);
     }
   );

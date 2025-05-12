@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateFavoriteDto } from "./dto/create-favorite.dto";
+import { Prisma } from "@prisma/client";
 
 @Injectable()
 export class FavoriteService {
@@ -20,13 +21,12 @@ export class FavoriteService {
 
     return this.prisma.favorite.create({
       data: {
-        userId,
-        apodId: dto.apodId,
-        title: dto.title,
-        date: dto.date,
-        url: dto.url,
-        explanation: dto.explanation,
+        user: { connect: { id: userId } },
+        apod: { connect: { id: dto.apodId } }
       },
+      include: {
+        apod: true
+      }
     });
   }
 

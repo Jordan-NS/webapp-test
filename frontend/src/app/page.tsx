@@ -1,11 +1,12 @@
 'use client';
 
 import Hero from "@/components/Hero";
-import { useState, useEffect, useCallback } from 'react';
-import { useApi } from '@/services/api';
+import { useState, useEffect } from 'react';
 import { ImageCard } from '@/components/nasa/ImageCard';
-import { Calendar, Search, Loader2, Rocket } from 'lucide-react';
+import { Calendar, Search, Loader2, Rocket, Star } from 'lucide-react';
+import { useNasaQueries } from '@/hooks/useNasaQueries';
 import { useSession } from 'next-auth/react';
+import Image from "next/image";
 
 interface NasaImage {
   id: string;
@@ -16,34 +17,15 @@ interface NasaImage {
   mediaType: string;
 }
 
-interface Favorite {
-  id: string;
-  userId: string;
-  apodId: string;
-  title: string;
-  date: string;
-  url: string;
-  explanation: string;
-  createdAt: string;
-}
-
 export default function Home() {
-  const [images, setImages] = useState<NasaImage[]>([]);
-  const [favorites, setFavorites] = useState<Favorite[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [isLoadingDaily, setIsLoadingDaily] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { data: session, status } = useSession();
   const [date, setDate] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [hasMore, setHasMore] = useState(true);
-  const [totalImages, setTotalImages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const api = useApi();
-  const { status } = useSession();
+  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
+  const { useImages, useFavorites } = useNasaQueries();
 
-  // Carregar estado inicial do localStorage
+
   useEffect(() => {
     const savedPage = localStorage.getItem('nasaCurrentPage');
     const savedSearch = localStorage.getItem('nasaSearchTerm');
@@ -54,127 +36,77 @@ export default function Home() {
     if (savedDate) setDate(savedDate);
   }, []);
 
-  // Salvar estado no localStorage quando mudar
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      localStorage.removeItem('nasaFavorites');
+      setShowOnlyFavorites(false);
+    }
+  }, [status]);
+
   useEffect(() => {
     localStorage.setItem('nasaCurrentPage', currentPage.toString());
     localStorage.setItem('nasaSearchTerm', searchTerm);
     localStorage.setItem('nasaDate', date);
   }, [currentPage, searchTerm, date]);
 
-  const fetchImages = useCallback(async (pageNum: number = 1, append: boolean = false) => {
-    try {
-      if (pageNum === 1) {
-        setIsLoading(true);
-      } else {
-        setIsLoadingMore(true);
-      }
-      setError(null);
-      
-      const response = await api.get('/apod', {
-        params: {
-          date: date || undefined,
-          search: searchTerm || undefined,
-          page: pageNum,
-          limit: 30
-        }
-      });
-      
-      const { images: newImages, total, hasMore, currentPage, totalPages } = response.data;
-      console.log('Resposta da API:', { newImages, total, hasMore, currentPage, totalPages });
-      
-      setHasMore(hasMore);
-      setTotalImages(total);
-      setCurrentPage(currentPage);
-      setTotalPages(totalPages);
-      
-      if (append) {
-        setImages(prev => [...prev, ...newImages]);
-      } else {
-        setImages(newImages);
-      }
-    } catch (err) {
-      console.error('Erro ao carregar imagens:', err);
-      setError('Erro ao carregar imagens. Tente novamente mais tarde.');
-    } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
-    }
-  }, [api, date, searchTerm]);
+  const { data: imagesData, isLoading, error } = useImages({
+    page: currentPage,
+    date: date || undefined,
+    search: searchTerm || undefined,
+    limit: 30
+  });
 
-  const fetchFavorites = useCallback(async () => {
-    if (status !== 'authenticated') return;
-    
-    try {
-      const response = await api.get('/favorites');
-      setFavorites(response.data);
-    } catch (err) {
-      console.error('Erro ao carregar favoritos:', err);
-    }
-  }, [api, status]);
-
-  const fetchDailyImage = useCallback(async () => {
-    try {
-      setIsLoadingDaily(true);
-      setError(null);
-      
-      const response = await api.get('/apod/sync');
-      
-      if (response.data) {
-        setImages(prev => [response.data, ...prev]);
-        setTotalImages(prev => prev + 1);
-      } else {
-        setError('Nenhuma imagem encontrada para hoje.');
-      }
-    } catch (err) {
-      console.error('Erro ao buscar imagem do dia:', err);
-      setError('Erro ao buscar imagem do dia. Tente novamente mais tarde.');
-    } finally {
-      setIsLoadingDaily(false);
-    }
-  }, [api]);
-
-  useEffect(() => {
-    const syncAllImages = async () => {
-      try {
-        await api.get('/apod/sync-all');
-        // Recarregar as imagens após a sincronização
-        fetchImages(1, false);
-      } catch (error) {
-        console.error('Erro ao sincronizar imagens:', error);
-      }
-    };
-
-    syncAllImages();
-  }, [api, fetchImages]);
-
-  useEffect(() => {
-    if (status === 'authenticated') {
-      fetchFavorites();
-    }
-  }, [status, fetchFavorites]);
+  const { data: favorites = [] } = useFavorites();
 
   const handleLoadMore = () => {
-    const nextPage = currentPage + 1;
-    setCurrentPage(nextPage);
-    fetchImages(nextPage, true);
+    setCurrentPage(prev => prev + 1);
   };
 
-  const handleFavoriteToggle = useCallback(() => {
-    fetchFavorites();
-  }, [fetchFavorites]);
-  
-  
+  const handleFavoriteToggle = () => {
+    if (showOnlyFavorites) {
+      setCurrentPage(1);
+    }
+  };
+
+  const handleToggleFavoritesFilter = () => {
+    setShowOnlyFavorites(prev => !prev);
+    setCurrentPage(1);
+  };
+
+  const filteredImages = showOnlyFavorites
+    ? imagesData?.images.filter((image: NasaImage) => favorites.some(fav => fav.apodId === image.id))
+    : imagesData?.images;
+
   return (
     <div className="flex flex-col items-center">
       <Hero onExploreClick={() => document.getElementById('nasa-images')?.scrollIntoView({ behavior: 'smooth' })} />
       
-      {/* NASA Images Section */}
       <div id="nasa-images" className="container mx-auto px-4 py-16">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-foreground mb-4">
-            Imagens do Dia da NASA
-          </h2>
-          <p className="text-muted-foreground">
+          <div className="flex items-center justify-between">
+            <h2 className="text-3xl font-bold text-foreground">
+              Imagens do Dia da NASA
+            </h2>
+            {status === 'authenticated' && (
+              <div className="flex items-center gap-4">
+                <span className="text-muted-foreground">
+                  Bem-vindo, {session.user.name || session.user.email}
+                </span>
+                <button
+                  onClick={handleToggleFavoritesFilter}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors duration-300 ${
+                    showOnlyFavorites 
+                      ? 'bg-[#c75c5c] text-white hover:bg-[#b54b4b]' 
+                      : 'bg-card border border-border hover:bg-accent'
+                  }`}
+                >
+                  <Star className={`w-4 h-4 ${showOnlyFavorites ? 'fill-white' : ''}`} />
+                  {showOnlyFavorites ? 'Mostrar todas' : 'Apenas favoritos'}
+                </button>
+              </div>
+            )}
+          </div>
+          <p className="text-muted-foreground mt-4">
             Explore as incríveis imagens do espaço capturadas pela NASA.
           </p>
         </div>
@@ -199,23 +131,11 @@ export default function Home() {
               className="pl-10 pr-4 py-2 bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c75c5c]"
             />
           </div>
-          <button
-            onClick={fetchDailyImage}
-            disabled={isLoadingDaily}
-            className="px-6 py-2 bg-[#c75c5c] text-white rounded-lg hover:bg-[#b54b4b] transition-colors duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoadingDaily ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Rocket className="w-5 h-5" />
-            )}
-            Buscar imagem do dia
-          </button>
         </div>
 
         {error && (
           <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded-lg mb-8">
-            {error}
+            {error.message}
           </div>
         )}
 
@@ -237,11 +157,12 @@ export default function Home() {
         ) : (
           <>
             <div className="mb-4 text-sm text-muted-foreground">
-              Mostrando {images.length} de {totalImages} {totalImages === 1 ? 'imagem' : 'imagens'} (Página {currentPage} de {totalPages})
+              Mostrando {filteredImages?.length || 0} de {imagesData?.total || 0} {imagesData?.total === 1 ? 'imagem' : 'imagens'} (Página {imagesData?.currentPage || 1} de {imagesData?.totalPages || 1})
+              {showOnlyFavorites && ' - Apenas favoritos'}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {images.map((image, index) => (
+              {filteredImages?.map((image: NasaImage, index: number) => (
                 <ImageCard
                   key={`nasa-image-${image.id}`}
                   {...image}
@@ -252,24 +173,24 @@ export default function Home() {
               ))}
             </div>
 
-            {hasMore && !isLoadingMore && (
+            {imagesData?.hasMore && !isLoading && !showOnlyFavorites && (
               <div className="mt-8 text-center">
                 <button
                   onClick={handleLoadMore}
                   className="px-6 py-3 bg-[#c75c5c] text-white rounded-lg hover:bg-[#b54b4b] transition-colors duration-300 flex items-center justify-center gap-2 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isLoadingMore}
+                  disabled={isLoading}
                 >
-                  {isLoadingMore ? (
+                  {isLoading ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <Rocket className="w-5 h-5" />
                   )}
-                  Carregar mais imagens ({totalImages - images.length} restantes)
+                  Carregar mais imagens ({imagesData.total - imagesData.images.length} restantes)
                 </button>
               </div>
             )}
 
-            {isLoadingMore && (
+            {isLoading && (
               <div className="mt-8 text-center">
                 <div className="flex flex-col items-center gap-2">
                   <Loader2 className="w-8 h-8 animate-spin text-[#c75c5c]" />
@@ -278,16 +199,27 @@ export default function Home() {
               </div>
             )}
 
-            {!isLoading && !isLoadingMore && images.length === 0 && (
+            {!isLoading && filteredImages?.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">
-                  Nenhuma imagem encontrada. Tente ajustar os filtros ou buscar a imagem do dia.
+                  {showOnlyFavorites 
+                    ? "Você ainda não tem imagens favoritas. Explore a galeria e adicione algumas!"
+                    : "Nenhuma imagem encontrada. Tente ajustar os filtros ou buscar a imagem do dia."}
                 </p>
               </div>
             )}
           </>
         )}
       </div>
+      <footer className="w-full bg-card border-t border-border py-6 mt-12 flex flex-col items-center">
+        <div className="flex items-center gap-2 mb-2">
+          <Image src="/rocket.svg" alt="Logo" width={32} height={32} className="h-8 w-8" />
+          <span className="font-bold text-lg text-foreground">NASA Explorer</span>
+        </div>
+        <div className="text-muted-foreground text-sm">
+          © {new Date().getFullYear()} - Projeto técnico. Imagens: NASA APOD API.
+        </div>
+      </footer>
     </div>
   );
 }
