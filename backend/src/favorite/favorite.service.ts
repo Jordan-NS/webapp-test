@@ -1,0 +1,56 @@
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { CreateFavoriteDto } from "./dto/create-favorite.dto";
+
+@Injectable()
+export class FavoriteService {
+  constructor(private prisma: PrismaService) {}
+
+  async create(userId: string, dto: CreateFavoriteDto) {
+    const alreadyFavorited = await this.prisma.favorite.findFirst({
+      where: {
+        userId,
+        apodId: dto.apodId,
+      },
+    });
+
+    if (alreadyFavorited) {
+      return alreadyFavorited;
+    }
+
+    return this.prisma.favorite.create({
+      data: {
+        userId,
+        apodId: dto.apodId,
+        title: dto.title,
+        date: dto.date,
+        url: dto.url,
+        explanation: dto.explanation,
+      },
+    });
+  }
+
+  async remove(userId: string, apodId: string) {
+    const favorite = await this.prisma.favorite.findFirst({
+      where: {
+        apodId,
+        userId
+      },
+    });
+
+    if (!favorite) {
+      throw new NotFoundException("Favorito não encontrado");
+    }
+
+    return this.prisma.favorite.delete({ where: { id: favorite.id } });
+  }
+
+  async findUserFavorites(userId: string) {
+    return this.prisma.favorite.findMany({
+      where: { userId },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+  }
+}
