@@ -79,20 +79,11 @@ export function useNasaQueries() {
   const useAddFavorite = () => {
     return useMutation({
       mutationFn: async (data: { apodId: string }) => {
-        const response = await fetch('/api/favorites', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(data),
-        });
-        if (!response.ok) {
-          throw new Error('Failed to add favorite');
-        }
-        return response.json();
+        const response = await api.post("/favorites", data);
+        return response.data;
       },
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['favorites'] });
+        queryClient.invalidateQueries({ queryKey: ["nasa-favorites"] });
       },
     });
   };
